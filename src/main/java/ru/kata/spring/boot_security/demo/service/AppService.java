@@ -21,6 +21,7 @@ import javax.persistence.PersistenceContext;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 
 @Service
@@ -29,6 +30,7 @@ public class AppService implements UserDetailsService {
     private final RoleRepository roleRepository;
 
     @PersistenceContext
+    private EntityManager entityManager;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Autowired
@@ -58,6 +60,11 @@ public class AppService implements UserDetailsService {
         userRepository.save(user);
     }
 
+    @Transactional
+    public void saveRole(Role role) {
+        entityManager.persist(role);
+    }
+
     public User findByUsername(String username) {
         return userRepository.findByUsername(username);
     }
@@ -67,13 +74,36 @@ public class AppService implements UserDetailsService {
         userRepository.deleteById(id);
     }
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username);
-        if (user == null) {
-            throw new UsernameNotFoundException(String.format("User '%s' not found", username));
-        }
-        return user;
+    @Transactional
+    public void update(User user) {
+        userRepository.save(user);
     }
 
+    @Override
+    @Transactional
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email);
+
+        if (user == null) {
+            throw new UsernameNotFoundException(String.format("User '%s' not found", email));
+        }
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(), user.getPassword(), user.getAuthorities());
+    }
+
+    public User getUserByEmail(String email) {
+        Optional<User> user = Optional.ofNullable(userRepository.findByEmail(email));
+
+        if (user.isPresent()) {
+            return user.get();
+        } else {
+            throw new UsernameNotFoundException(String.format("User with email '%s' not found", email));
+        }
+    }
+
+    private static Collection<? extends GrantedAuthority> getAuthorities(User user) {
+        String[] userRoles = user.getRoles().stream().map((role) -> role.getName()).toArray(String[]::new);
+        Collection<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList(userRoles);
+        return authorities;
+    }
 }
