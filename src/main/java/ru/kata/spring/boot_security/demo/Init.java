@@ -1,54 +1,46 @@
 package ru.kata.spring.boot_security.demo;
 
 
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import ru.kata.spring.boot_security.demo.model.Role;
 import ru.kata.spring.boot_security.demo.model.User;
 import ru.kata.spring.boot_security.demo.repository.RoleRepository;
 import ru.kata.spring.boot_security.demo.repository.UserRepository;
 
-
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
-
+import java.util.HashSet;
+import java.util.Set;
 
 @Component
 public class Init {
+    private final UserRepository userRepository;
     private final RoleRepository roleRepository;
 
-    private final UserRepository userRepository;
-
-    public Init(RoleRepository roleRepository, UserRepository userRepository) {
-        this.roleRepository = roleRepository;
+    public Init(UserRepository userRepository, RoleRepository roleRepository) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
     }
 
     @PostConstruct
-    public void init() {
+    public void createTestUsersWithRoles() {
+        Role role1 = new Role("ROLE_ADMIN");
+        Role role2 = new Role("ROLE_USER");
 
-        Role roleUser = new Role("ROLE_USER");
-        Role roleAdmin = new Role("ROLE_ADMIN");
+        roleRepository.save(role1);
+        roleRepository.save(role2);
 
-        var userRoles = new ArrayList<Role>();
-        var adminRoles = new ArrayList<Role>();
+        User user1 = new User
+                ("user@mail.ru", "Иван", "Иванов", (byte) 23,
+                        new BCryptPasswordEncoder().encode("user"));
+        User user2 = new User
+                ("admin@mail.ru", "Алексей", "Петров", (byte) 33,
+                        new BCryptPasswordEncoder().encode("admin"));
 
-        userRoles.add(roleUser);
-        adminRoles.add(roleAdmin);
+        user1.setRoles(new HashSet<>(Set.of(role2)));
+        user2.setRoles(new HashSet<>(Set.of(role1)));
 
-        roleRepository.save(roleUser);
-        roleRepository.save(roleAdmin);
-
-        // Пароль - имя юзера
-        User admin = new User("admin", "test2", 30, "admin@mail.ru",
-                "$2a$12$R7UwBqhVMUHlvoyQrwnT9upAry2qvrDLdRkN6YFd0TEdyOWqCUdya");
-        User user = new User("user", "test1", 28, "user@mail.ru",
-                "$2a$12$jl2mZEZR2p3uVnyWGgz/s.BGm7nhqzPC.Y5CqZsEoNpqLHBFkhs9O");
-
-        user.setRoles(userRoles);
-        admin.setRoles(adminRoles);
-
-        userRepository.save(user);
-        userRepository.save(admin);
+        userRepository.save(user1);
+        userRepository.save(user2);
     }
 }
